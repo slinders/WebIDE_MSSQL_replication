@@ -1,0 +1,35 @@
+ID: MSSQL_replication
+_schema-version: '2.1'
+version: 0.0.1
+
+modules:
+ - name: db
+   type: hdb
+   path: db
+   requires:
+    - name: hdi_db
+      properties:
+        TARGET_CONTAINER: ~{hdi-container-name}
+    - name: cross-container-service-1
+      group: SERVICE_REPLACEMENTS
+      properties:
+        key: ServiceName_1
+        service: ~{the-service-name}
+                          
+resources:
+ - name: hdi_db
+   parameters:
+      config:
+         schema: MSSQL_REPLICATION
+         database_id: 1ac60082-5596-4e4f-b7b8-baca347604a6
+   properties:
+      hdi-container-name: ${service-name}
+   type: com.sap.xs.hdi-container
+
+ - name: cross-container-service-1
+   parameters:
+      service-name: cups_mssql_remote_source
+   properties:
+      the-service-name: ${service-name}
+   type: org.cloudfoundry.existing-service
+

@@ -1,0 +1,22 @@
+{
+	"cups_mssql_remote_source": {
+		"object_owner": {
+			"global_object_privileges": [
+				{
+					"name": "aws_fra_mssql",
+					"type": "REMOTE SOURCE",
+					"privileges" : ["CREATE VIRTUAL TABLE", "CREATE REMOTE SUBSCRIPTION"]
+				}
+			]
+		},
+		"application_user": {
+			"global_object_privileges": [
+				{
+					"name": "aws_fra_mssql",
+					"type": "REMOTE SOURCE",
+					"privileges" : ["ALTER", "CREATE VIRTUAL TABLE", "PROCESS REMOTE SUBSCRIPTION EXCEPTION" ]
+				}
+			]
+		}
+	}
+}
