@@ -1,5 +1,11 @@
 # Set up real-time replication from source to SAP HANA in SAP Web IDE with MSSQL example
 
+## Prerequisites
+- A MSSQL database
+- An SAP HANA database (this tutorial uses HANA Cloud)
+- The SAP SDI Data Provisioning Agent (this tutorial uses version 2.5.2.0)
+- Connection set up between HANA and the SDI Data Provisioning Agent
+
 ## Prep MSSQL database
 For this tutorial, a Microsoft SQL Server Express Edition database was created using the 
 AWS Relational Database Service. The database version is the latest available 14.* version 
@@ -61,8 +67,8 @@ USE hc;
 GRANT CREATE TABLE TO HC_TECHNICAL_USER;
 ```
 
+The following is not in the SDI documentation, but was needed to allow replication
 ```
---The following is not in the SDI documentation, but was needed to allow replication
 --Create schema for SDI data to be stored
 USE hc;
 CREATE SCHEMA HC_TECHNICAL_USER;
@@ -72,7 +78,7 @@ USE hc;
 GRANT SELECT, INSERT, UPDATE, DELETE, ALTER, EXECUTE, VIEW DEFINITION ON SCHEMA::HC_TECHNICAL_USER TO HC_TECHNICAL_USER;
 ```
 
-### Create source table and insert a few records of initial data
+## Create source table and insert a few records of initial data
 ```
 DROP TABLE REP.SALES;
 CREATE TABLE REP.SALES (ID INTEGER, CREATION_DATE DATE, CUSTOMER_NAME NVARCHAR(100), PRODUCT_NAME NVARCHAR (100), QUANTITY INTEGER, PRICE DECIMAL, POS_COUNTRY NVARCHAR(100), PRIMARY KEY (ID));
@@ -80,20 +86,17 @@ INSERT INTO REP.SALES VALUES (1,'20200908','Cas Jensen','Toothbrush 747','6','26
 INSERT INTO REP.SALES VALUES (2,'20201018','Barry French','Shampoo F100','2','199.99','Germany');
 ```
 
+## Create remote source on HANA
+The remote source can be set up using the Database Explorer, with a graphical UI. Below, the remote source is created using a create statement.
+Make sure to replace:
+- <host_name> with the hostname of your database
+- <technical_user_password> with the password set for the HC_TECHNICAL_USER of the source database
+- <agent_name> with the name of your agent 
 
-DROP USER AGENT_ADMIN;
-CREATE USER AGENT_ADMIN PASSWORD "<password>" NO FORCE_FIRST_PASSWORD_CHANGE SET USERGROUP DEFAULT;
-ALTER USER AGENT_ADMIN DISABLE PASSWORD LIFETIME;
-grant agent admin to AGENT_ADMIN;
-grant adapter admin to AGENT_ADMIN;
-CREATE USER AGENT_MESSENGER PASSWORD "<password>" NO FORCE_FIRST_PASSWORD_CHANGE SET USERGROUP DEFAULT;
-ALTER USER AGENT_MESSENGER DISABLE PASSWORD LIFETIME;
-
-CREATE SCHEMA REP_MSSQL;
-
---create remote source
-CREATE REMOTE SOURCE "aws_fra_mssql"
-	ADAPTER "MssqlLogReaderAdapter"
+```
+DROP REMOTE SOURCE "RS_MSSQL" CASCADE;
+CREATE REMOTE SOURCE "RS_MSSQL"
+	ADAPTER "MssqlLogReaderAdapter" AT LOCATION AGENT "<agent_name>"
 		CONFIGURATION '<?xml version="1.0" encoding="UTF-8"?>
 <ConnectionProperties name="configurations">
   <PropertyGroup name="generic">
@@ -106,11 +109,11 @@ CREATE REMOTE SOURCE "aws_fra_mssql"
   </PropertyGroup>
   <PropertyGroup name="database">
       <PropertyEntry name="pds_always_on">false</PropertyEntry>
-      <PropertyEntry name="pds_server_name">something.rds.amazonaws.com</PropertyEntry>
+      <PropertyEntry name="pds_server_name"><host_name>/PropertyEntry>
       <PropertyEntry name="pds_port_number">1433</PropertyEntry>
       <PropertyEntry name="pds_aglistener_host"></PropertyEntry>
       <PropertyEntry name="pds_aglistener_port"></PropertyEntry>
-      <PropertyEntry name="pds_database_name">test</PropertyEntry>
+      <PropertyEntry name="pds_database_name">hc</PropertyEntry>
       <PropertyEntry name="pds_use_remote">false</PropertyEntry>
       <PropertyEntry name="additional_connection_properties"></PropertyEntry>
       <PropertyEntry name="remarksReporting">false</PropertyEntry>
@@ -155,12 +158,21 @@ CREATE REMOTE SOURCE "aws_fra_mssql"
   </PropertyGroup>
 </ConnectionProperties>
 '
-WITH CREDENTIAL TYPE 'PASSWORD'
-USING '<CredentialEntry name="credential"><user></user>
-<password></password></CredentialEntry>';
+			WITH CREDENTIAL TYPE 'PASSWORD'
+USING '<CredentialEntry name="credential"><user>HC_TECHNICAL_USER</user>
+<password><technical_user_password></password></CredentialEntry>';
+```
+
+## Test replication with SQL statements
+Before building the Web IDE project with replication tasks, it might be a good idea to first check if replication works on the HANA level. 
+This can be done with the following statements. The assumption is that you are using a user with the required privileges on the remote source to create subscriptions.
+You could also do these tests using the graphical UI of the DB Explorer.
+
+```
+CREATE SCHEMA REP_MSSQL;
 
 -- setup subscription
-CREATE VIRTUAL TABLE "REP_MSSQL"."V_SALES" at "aws_fra_mssql"."<NULL>"."reptest"."SALES";
+CREATE VIRTUAL TABLE "REP_MSSQL"."V_SALES" at "RS_MSSQL"."<NULL>"."rep"."SALES";
 CREATE TABLE "REP_MSSQL"."T_SALES" LIKE "REP_MSSQL"."V_SALES";
 CREATE REMOTE SUBSCRIPTION "REP_MSSQL"."SUB_SALES" ON "REP_MSSQL"."V_SALES" TARGET TABLE "REP_MSSQL"."T_SALES" ;
 ALTER REMOTE SUBSCRIPTION "REP_MSSQL"."SUB_SALES" QUEUE;
@@ -168,18 +180,48 @@ ALTER REMOTE SUBSCRIPTION "REP_MSSQL"."SUB_SALES" QUEUE;
 -- do initial load before distribute remote subscription
 INSERT INTO "REP_MSSQL"."T_SALES"  (SELECT * FROM "REP_MSSQL"."V_SALES");
 ALTER REMOTE SUBSCRIPTION "REP_MSSQL"."SUB_SALES" DISTRIBUTE;
--- do some dmls in REP_MSSQL and check change data here
+-- the following should return the two records inserted earlier into the source table
 SELECT * FROM "REP_MSSQL"."T_SALES";
+-- execute the following on the source table in mssql
+INSERT INTO REP.SALES VALUES (3,'20201020','Zeph Skater','Helmet C172','30','300.00','Spain');
+-- check if the record is replicated to the target table
+SELECT * FROM "REP_MSSQL"."T_SALES";
+```
 
+If the SQL tests are successful, the created objects can again be removed with the following statements
+
+```
 -- stop the replication
 ALTER REMOTE SUBSCRIPTION "REP_MSSQL"."SUB_SALES" RESET;
 DROP REMOTE SUBSCRIPTION "REP_MSSQL"."SUB_SALES";
 DROP TABLE "REP_MSSQL"."V_SALES";
 DROP TABLE "REP_MSSQL"."T_SALES";
+```
 
---service grantor user
---when creating the service, make sure to include the certificate: https://help.sap.com/viewer/f1b440ded6144a54ada97ff95dac7adf/2.6/en-US/c8d62da2150c4b1ebb8f9460d2cfde74.html
+## Web IDE project with design time Replication Tasks
+If you are happy with building your replications with solely SQL, this would be your endpoint. 
+But now the fun really starts with the SAP Web IDE, where a project will be created with design time files,
+replicating the same (and more) as was done earlier with SQL statements.
 
+### Create a user in HANA for the User Provided Service
+A User Provided Service will be created later, but first we need to create a user on the HANA database that this service can leverage.
+The user that we create should have the privilege *to grant access* to create virtual tables, create remote subscriptions, and to process remote subscriptions.
+
+```
+DROP USER cups_mssql_remote_source;
+CREATE USER cups_mssql_remote_source PASSWORD "<password>" NO FORCE_FIRST_PASSWORD_CHANGE;
+ALTER USER cups_mssql_remote_source DISABLE PASSWORD LIFETIME;
+GRANT CREATE VIRTUAL TABLE ON REMOTE SOURCE "RS_MSSQL" TO cups_mssql_remote_source WITH GRANT OPTION;
+GRANT CREATE REMOTE SUBSCRIPTION ON REMOTE SOURCE "RS_MSSQL" TO cups_mssql_remote_source WITH GRANT OPTION;
+GRANT PROCESS REMOTE SUBSCRIPTION EXCEPTION ON REMOTE SOURCE "RS_MSSQL" TO cups_mssql_remote_source WITH GRANT OPTION;
+```
+
+### Create a User Provided Service
+Creating a user provided service can also be done from the Web IDE. Below the definition is displayed, which can also be used to create the service from the command line or the SCP Admin UI.
+When creating the service, make sure to include the certificate as described in the [SAP Help](https://help.sap.com/viewer/f1b440ded6144a54ada97ff95dac7adf/2.6/en-US/c8d62da2150c4b1ebb8f9460d2cfde74.html)
+Make sure to put in the password and the right host and API endpoint of the HANA database. 
+If you are configuring an on-prem HANA database, you can leave out the endpoint, encrypt and certificate tags.
+```
 {
     "host": "<database-id>.hana.prod-eu20.hanacloud.ondemand.com",
     "port": "443",
@@ -193,13 +235,9 @@ DROP TABLE "REP_MSSQL"."T_SALES";
     "encrypt": true,
     "certificate": "-----BEGIN CERTIFICATE-----\nMIIDrzCCApegAwIBAgIQCDvgVpBCRrGhdWrJWZHHSjANBgkqhkiG9w0BAQUFADBh\nMQswCQYDVQQGEwJVUzEVMBMGA1UEChMMRGlnaUNlcnQgSW5jMRkwFwYDVQQLExB3\nd3cuZGlnaWNlcnQuY29tMSAwHgYDVQQDExdEaWdpQ2VydCBHbG9iYWwgUm9vdCBD\nQTAeFw0wNjExMTAwMDAwMDBaFw0zMTExMTAwMDAwMDBaMGExCzAJBgNVBAYTAlVT\nMRUwEwYDVQQKEwxEaWdpQ2VydCBJbmMxGTAXBgNVBAsTEHd3dy5kaWdpY2VydC5j\nb20xIDAeBgNVBAMTF0RpZ2lDZXJ0IEdsb2JhbCBSb290IENBMIIBIjANBgkqhkiG\n9w0BAQEFAAOCAQ8AMIIBCgKCAQEA4jvhEXLeqKTTo1eqUKKPC3eQyaKl7hLOllsB\nCSDMAZOnTjC3U/dDxGkAV53ijSLdhwZAAIEJzs4bg7/fzTtxRuLWZscFs3YnFo97\nnh6Vfe63SKMI2tavegw5BmV/Sl0fvBf4q77uKNd0f3p4mVmFaG5cIzJLv07A6Fpt\n43C/dxC//AH2hdmoRBBYMql1GNXRor5H4idq9Joz+EkIYIvUX7Q6hL+hqkpMfT7P\nT19sdl6gSzeRntwi5m3OFBqOasv+zbMUZBfHWymeMr/y7vrTC0LUq7dBMtoM1O/4\ngdW7jVg/tRvoSSiicNoxBN33shbyTApOB6jtSj1etX+jkMOvJwIDAQABo2MwYTAO\nBgNVHQ8BAf8EBAMCAYYwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQUA95QNVbR\nTLtm8KPiGxvDl7I90VUwHwYDVR0jBBgwFoAUA95QNVbRTLtm8KPiGxvDl7I90VUw\nDQYJKoZIhvcNAQEFBQADggEBAMucN6pIExIK+t1EnE9SsPTfrgT1eXkIoyQY/Esr\nhMAtudXH/vTBH1jLuG2cenTnmCmrEbXjcKChzUyImZOMkXDiqw8cvpOp/2PV5Adg\n06O/nVsJ8dWO41P0jmP6P6fbtGbfYmbW0W5BjfIttep3Sp+dWOIrWcBAI+0tKIJF\nPnlUkiaY4IBIqDfv8NZ5YBberOgOzW6sRBc4L0na4UU+Krk2U886UAb3LujEV0ls\nYSEY1QSteDwsOoBrp+uvFRTp2InBuThs4pFsiv9kuXclVzDAGySj4dzp30d8tbQk\nCAUw7C29C79Fv1C5qfPrmAESrciIxpg0X40KPMbp1ZWVbd4=\n-----END CERTIFICATE-----"
 }
+```
 
-CREATE USER cups_mssql_remote_source PASSWORD "<password>" NO FORCE_FIRST_PASSWORD_CHANGE;
-ALTER USER cups_mssql_remote_source DISABLE PASSWORD LIFETIME;
-GRANT CREATE VIRTUAL TABLE ON REMOTE SOURCE "aws_fra_mssql" TO cups_mssql_remote_source WITH GRANT OPTION;
-GRANT CREATE REMOTE SUBSCRIPTION ON REMOTE SOURCE "aws_fra_mssql" TO cups_mssql_remote_source WITH GRANT OPTION;
-GRANT PROCESS REMOTE SUBSCRIPTION EXCEPTION ON REMOTE SOURCE "aws_fra_mssql" TO cups_mssql_remote_source WITH GRANT OPTION;
-GRANT ALTER ON REMOTE SOURCE "aws_fra_mssql" TO cups_mssql_remote_source WITH GRANT OPTION;
+Now the config is complete and the Web IDE project can now be build.
 
---hdbgrants syntax for remote remote_sources
-https://help.sap.com/viewer/4505d0bdaf4948449b7f7379d24d0f0d/2.0.03/en-US/f49c1f5c72ee453788bf79f113d83bf9.html
+## Reference
+Hdbgrants syntax for remote remote_sources: [SAP Help](https://help.sap.com/viewer/4505d0bdaf4948449b7f7379d24d0f0d/2.0.03/en-US/f49c1f5c72ee453788bf79f113d83bf9.html)
