@@ -3,44 +3,85 @@
 ## Prep MSSQL database
 For this tutorial, a Microsoft SQL Server Express Edition database was created using the 
 AWS Relational Database Service. The database version is the latest available 14.* version 
-and it runs on db.t3.small
- 
-Created user and test objects
+and is sized as a db.t3.small.
 
+### Configure MSSQL database
+Using the master user that is provided by AWS, a specific user is created which will later be used for HANA to logon with to this source database. 
+
+```
 USE master;
-CREATE LOGIN DWC_TECHNICAL_USER
+CREATE LOGIN HC_TECHNICAL_USER
  WITH PASSWORD = '<password>',
  CHECK_POLICY = OFF,
  CHECK_EXPIRATION = OFF;
+```
 
-GRANT VIEW SERVER STATE TO DWC_TECHNICAL_USER;
+A database is created
+```
+USE master; 
+CREATE DATABASE hc;
+```
 
--- use the master database to create your new database:
+Then, in that new database, authorization settings are made and a new schema is created 
 
-USE master;  
-CREATE DATABASE test;
+```
+USE hc;
+CREATE SCHEMA rep;
+create user HC_TECHNICAL_USER for login HC_TECHNICAL_USER;
+```
 
--- then, use your new database to create your schema:
+The user is granted the required privileges according to the [SAP Help] (https://help.sap.com/viewer/7952ef28a6914997abc01745fef1b607/2.0_SPS05/en-US/2815e1a621f84bada5fa3447d5029eb6.html).
 
-USE test;
-GRANT CONTROL ON DATABASE::test TO DWC_TECHNICAL_USER;
-CREATE SCHEMA test_schema;
-create user DWC_TECHNICAL_USER for login DWC_TECHNICAL_USER;
-grant select on schema :: test_schema to DWC_TECHNICAL_USER;
+```
+--Creating a DML trigger requires ALTER permission on the table or view on which the trigger is being created.
+USE hc;
+GRANT ALTER ON SCHEMA::rep TO HC_TECHNICAL_USER;
 
--- create table
-create table T1 (a integer, b integer);
-insert into T1 values (0,1); 
+--Creating a DDL trigger with database scopes (ON DATABASE) requires ALTER ANY DATABASE DDL TRIGGER permission in the current database.
+USE hc;
+GRANT ALTER ANY DATABASE DDL TRIGGER TO HC_TECHNICAL_USER;
 
--- check and change password
-ALTER LOGIN DWC_TECHNICAL_USER WITH PASSWORD = '<password>',
- CHECK_POLICY = OFF,
- CHECK_EXPIRATION = OFF;
+--GRANT CREATE PROCEDURE TO [pds_user].
+USE hc;
+GRANT CREATE PROCEDURE TO HC_TECHNICAL_USER;
 
-EXEC sp_readerrorlog 0, 1, 'Login failed' 
+--GRANT SELECT, INSERT, UPDATE, DELETE, ALTER, EXECUTE, VIEW DEFINITION ON SCHEMA::[schema of the target subscribed table] TO [pds_user].
+USE hc;
+GRANT SELECT, INSERT, UPDATE, DELETE, ALTER, EXECUTE, VIEW DEFINITION ON SCHEMA::rep TO HC_TECHNICAL_USER;
 
---using DWC_TECHNICAL_USER to get over error that this schema could not be found
-create schema admin;
+--GRANT VIEW SERVER STATE permission to view data processing state, such as transaction ID. This must be granted on the master database.
+USE master;
+GRANT VIEW SERVER STATE TO HC_TECHNICAL_USER;
+```
+
+The user should also be allowed to create tables
+```
+--Allow the user to create tables
+USE hc;
+GRANT CREATE TABLE TO HC_TECHNICAL_USER;
+```
+
+```
+--The following is not in the SDI documentation, but was needed to allow replication
+--Create schema for SDI data to be stored
+USE hc;
+CREATE SCHEMA HC_TECHNICAL_USER;
+
+--Grant privileges to technical user on the created schema
+USE hc;
+GRANT SELECT, INSERT, UPDATE, DELETE, ALTER, EXECUTE, VIEW DEFINITION ON SCHEMA::HC_TECHNICAL_USER TO HC_TECHNICAL_USER;
+```
+
+### Create source table and insert a few records of initial data
+```
+DROP TABLE REP.SALES;
+CREATE TABLE REP.SALES (ID INTEGER, CREATION_DATE DATE, CUSTOMER_NAME NVARCHAR(100), PRODUCT_NAME NVARCHAR (100), QUANTITY INTEGER, PRICE DECIMAL, POS_COUNTRY NVARCHAR(100), PRIMARY KEY (ID));
+INSERT INTO REP.SALES VALUES (1,'20200908','Cas Jensen','Toothbrush 747','6','261.54','United States of America');
+INSERT INTO REP.SALES VALUES (2,'20201018','Barry French','Shampoo F100','2','199.99','Germany');
+```
+
+
+
 
 DROP USER AGENT_ADMIN;
 CREATE USER AGENT_ADMIN PASSWORD "<password>" NO FORCE_FIRST_PASSWORD_CHANGE SET USERGROUP DEFAULT;
