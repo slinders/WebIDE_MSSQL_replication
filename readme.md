@@ -242,6 +242,7 @@ Now the config is complete and the Web IDE project can now be build.
 
 ## Reference
 Hdbgrants syntax for remote remote_sources: [SAP Help](https://help.sap.com/viewer/4505d0bdaf4948449b7f7379d24d0f0d/2.0.03/en-US/f49c1f5c72ee453788bf79f113d83bf9.html)
+
 SQL statements for test data
 ```
 DROP TABLE REP.SALES;
