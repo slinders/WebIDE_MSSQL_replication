@@ -3,7 +3,7 @@
 ## Prerequisites
 - A MSSQL database
 - An SAP HANA database (this tutorial uses HANA Cloud)
-- The SAP SDI Data Provisioning Agent (this tutorial uses version 2.5.2.0)
+- The SAP SDI Data Provisioning Agent (this tutorial uses version 2.5.1.2)
 - Connection set up between HANA and the SDI Data Provisioning Agent
 
 ## Prep MSSQL database
