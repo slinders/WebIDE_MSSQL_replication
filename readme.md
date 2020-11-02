@@ -1,6 +1,10 @@
-# Set up real-time replication for SAP HANA in SAP Web IDE with MSSQL example
+# Set up real-time replication from source to SAP HANA in SAP Web IDE with MSSQL example
 
---prepping MSSQL database
+## Prep MSSQL database
+For this tutorial, a Microsoft SQL Server Express Edition database was created using the 
+AWS Relational Database Service. The database version is the latest available 14.* version 
+and it runs on db.t3.small
+ 
 Created user and test objects
 
 USE master;
