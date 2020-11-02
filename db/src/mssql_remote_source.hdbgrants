@@ -14,7 +14,7 @@
 				{
 					"name": "RS_MSSQL",
 					"type": "REMOTE SOURCE",
-					"privileges" : ["PROCESS REMOTE SUBSCRIPTION EXCEPTION" ]
+					"privileges" : ["ALTER", "CREATE VIRTUAL TABLE", "PROCESS REMOTE SUBSCRIPTION EXCEPTION" ]
 				}
 			]
 		}

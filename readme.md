@@ -211,7 +211,8 @@ The user that we create should have the privilege *to grant access* to create vi
 DROP USER cups_mssql_remote_source;
 CREATE USER cups_mssql_remote_source PASSWORD "<password>" NO FORCE_FIRST_PASSWORD_CHANGE;
 ALTER USER cups_mssql_remote_source DISABLE PASSWORD LIFETIME;
-GRANT CREATE VIRTUAL TABLE ON REMOTE SOURCE "RS_MSSQL" TO cups_mssql_remote_source WITH GRANT OPTION;
+GRANT CREATE VIRTUAL TABLE ON REMOTE SOURCE "RS_MSSQL" TO cups_mssql_remote_source WITH GRANT OPTION; --needed for object owner and reptask editor to browse remote source
+GRANT ALTER ON REMOTE SOURCE "RS_MSSQL" TO cups_mssql_remote_source WITH GRANT OPTION; --needed for reptask editor to browse remote source
 GRANT CREATE REMOTE SUBSCRIPTION ON REMOTE SOURCE "RS_MSSQL" TO cups_mssql_remote_source WITH GRANT OPTION;
 GRANT PROCESS REMOTE SUBSCRIPTION EXCEPTION ON REMOTE SOURCE "RS_MSSQL" TO cups_mssql_remote_source WITH GRANT OPTION;
 ```
@@ -241,3 +242,15 @@ Now the config is complete and the Web IDE project can now be build.
 
 ## Reference
 Hdbgrants syntax for remote remote_sources: [SAP Help](https://help.sap.com/viewer/4505d0bdaf4948449b7f7379d24d0f0d/2.0.03/en-US/f49c1f5c72ee453788bf79f113d83bf9.html)
+SQL statements for test data
+```
+DROP TABLE REP.SALES;
+CREATE TABLE REP.SALES (ID INTEGER, CREATION_DATE DATE, CUSTOMER_NAME NVARCHAR(100), PRODUCT_NAME NVARCHAR (100), QUANTITY INTEGER, PRICE DECIMAL, POS_COUNTRY NVARCHAR(100), PRIMARY KEY (ID));
+INSERT INTO REP.SALES VALUES (1,'20200908','Cas Jensen','Toothbrush 747','6','261.54','United States of America');
+INSERT INTO REP.SALES VALUES (2,'20201018','Barry French','Shampoo F100','2','199.99','Germany');
+INSERT INTO REP.SALES VALUES (3,'20201020','Zeph Skater','Helmet C172','30','300.00','Spain');
+INSERT INTO REP.SALES VALUES (4,'20201102','Clay Rozendal','Longboard A380','30','4965.76','Luxembourg');
+DELETE FROM REP.SALES WHERE ID=4;
+INSERT INTO REP.SALES VALUES (4,'20201102','Clay Rozendal','Shortboard T20','10','20.0','Luxembourg');
+UPDATE REP.SALES SET QUANTITY=50 WHERE ID=4;
+```
