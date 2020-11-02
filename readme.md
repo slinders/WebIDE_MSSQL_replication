@@ -30,7 +30,7 @@ CREATE SCHEMA rep;
 create user HC_TECHNICAL_USER for login HC_TECHNICAL_USER;
 ```
 
-The user is granted the required privileges according to the [SAP Help] (https://help.sap.com/viewer/7952ef28a6914997abc01745fef1b607/2.0_SPS05/en-US/2815e1a621f84bada5fa3447d5029eb6.html).
+The user is granted the required privileges according to the [SAP Help](https://help.sap.com/viewer/7952ef28a6914997abc01745fef1b607/2.0_SPS05/en-US/2815e1a621f84bada5fa3447d5029eb6.html).
 
 ```
 --Creating a DML trigger requires ALTER permission on the table or view on which the trigger is being created.
@@ -79,8 +79,6 @@ CREATE TABLE REP.SALES (ID INTEGER, CREATION_DATE DATE, CUSTOMER_NAME NVARCHAR(1
 INSERT INTO REP.SALES VALUES (1,'20200908','Cas Jensen','Toothbrush 747','6','261.54','United States of America');
 INSERT INTO REP.SALES VALUES (2,'20201018','Barry French','Shampoo F100','2','199.99','Germany');
 ```
-
-
 
 
 DROP USER AGENT_ADMIN;
