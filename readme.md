@@ -5,6 +5,7 @@
 - An SAP HANA database (this tutorial uses HANA Cloud)
 - The SAP SDI Data Provisioning Agent (this tutorial uses version 2.5.1.2)
 - Connection set up between HANA and the SDI Data Provisioning Agent
+- A driver for MSSQL for SDI to connect (this tutorial uses mssql-jdbc-8.4.1.jre8.jar)
 
 ## Prep MSSQL database
 For this tutorial, a Microsoft SQL Server Express Edition database was created using the 
@@ -12,7 +13,7 @@ AWS Relational Database Service. The database version is the latest available 14
 and is sized as a db.t3.small.
 
 ### Configure MSSQL database
-Using the master user that is provided by AWS, a specific user is created which will later be used for HANA to logon with to this source database. 
+Using the admin user that is provided by AWS, a technical user is created which will later be used for HANA to logon with to this source database. 
 
 ```
 USE master;
@@ -28,38 +29,17 @@ USE master;
 CREATE DATABASE hc;
 ```
 
-Then, in that new database, authorization settings are made and a new schema is created 
+The technical user is granted the required privileges according to the [SAP Help](https://help.sap.com/viewer/7952ef28a6914997abc01745fef1b607/2.0_SPS05/en-US/2815e1a621f84bada5fa3447d5029eb6.html).
+The instructions are not all mandatory, there's a trade-ff between security concern and usability. I chose usability, meaning for example that I grant access to the entire database and not individual tables.
+Also, *disclaimer*, this is one way you can configure your source database, but it might not be the best way for you. I'm assuming you know what you're doing.
+
+In the new database, a new schema is created and for the technical user a user is created to login to this database
 
 ```
 USE hc;
 CREATE SCHEMA rep;
 create user HC_TECHNICAL_USER for login HC_TECHNICAL_USER;
 ```
-
-The user is granted the required privileges according to the [SAP Help](https://help.sap.com/viewer/7952ef28a6914997abc01745fef1b607/2.0_SPS05/en-US/2815e1a621f84bada5fa3447d5029eb6.html).
-
-```
---Creating a DML trigger requires ALTER permission on the table or view on which the trigger is being created.
-USE hc;
-GRANT ALTER ON SCHEMA::rep TO HC_TECHNICAL_USER;
-
---Creating a DDL trigger with database scopes (ON DATABASE) requires ALTER ANY DATABASE DDL TRIGGER permission in the current database.
-USE hc;
-GRANT ALTER ANY DATABASE DDL TRIGGER TO HC_TECHNICAL_USER;
-
---GRANT CREATE PROCEDURE TO [pds_user].
-USE hc;
-GRANT CREATE PROCEDURE TO HC_TECHNICAL_USER;
-
---GRANT SELECT, INSERT, UPDATE, DELETE, ALTER, EXECUTE, VIEW DEFINITION ON SCHEMA::[schema of the target subscribed table] TO [pds_user].
-USE hc;
-GRANT SELECT, INSERT, UPDATE, DELETE, ALTER, EXECUTE, VIEW DEFINITION ON SCHEMA::rep TO HC_TECHNICAL_USER;
-
---GRANT VIEW SERVER STATE permission to view data processing state, such as transaction ID. This must be granted on the master database.
-USE master;
-GRANT VIEW SERVER STATE TO HC_TECHNICAL_USER;
-```
-
 The user should also be allowed to create tables
 ```
 --Allow the user to create tables
@@ -67,15 +47,50 @@ USE hc;
 GRANT CREATE TABLE TO HC_TECHNICAL_USER;
 ```
 
-The following is not in the SDI documentation, but was needed to allow replication
+It's up to you if you want to replicate DDL changes as well, I chose both DML/DDL.
+
 ```
---Create schema for SDI data to be stored
+--Creating a DML trigger requires ALTER permission on the table or schema on which the trigger is being created.
+USE hc;
+GRANT ALTER ON SCHEMA::rep TO HC_TECHNICAL_USER;
+
+--Creating a DDL trigger with database scopes (ON DATABASE) requires ALTER ANY DATABASE DDL TRIGGER permission in the current database.
+--Not needed if you don't want to replicate DDL changes
+USE hc;
+GRANT ALTER ANY DATABASE DDL TRIGGER TO HC_TECHNICAL_USER;
+
+--GRANT CREATE PROCEDURE needed for SDI to create a generic procedure needed for replication
+USE hc;
+GRANT CREATE PROCEDURE TO HC_TECHNICAL_USER;
+
+--GRANT VIEW SERVER STATE permission to view data processing state, such as transaction ID. This must be granted on the master database.
+USE master;
+GRANT VIEW SERVER STATE TO HC_TECHNICAL_USER;
+
+```
+
+Select access is needed to see data in the table, for example when viewing the content of the virtual table
+```
+USE hc;
+GRANT SELECT ON SCHEMA::rep TO HC_TECHNICAL_USER;
+```
+
+Besides, we want to also use the technical user to insert, update or delete data so we can run some DML tests with that user
+```
+USE hc;
+GRANT SELECT, INSERT, UPDATE, DELETE ON SCHEMA::rep TO HC_TECHNICAL_USER;
+
+```
+
+The following is (or was, if it's updated) not in the SDI documentation, but was needed to allow replication
+```
+--Create schema for SDI objects to manage replication. The schema should have the same name as the technical user name.
 USE hc;
 CREATE SCHEMA HC_TECHNICAL_USER;
 
 --Grant privileges to technical user on the created schema
 USE hc;
-GRANT SELECT, INSERT, UPDATE, DELETE, ALTER, EXECUTE, VIEW DEFINITION ON SCHEMA::HC_TECHNICAL_USER TO HC_TECHNICAL_USER;
+ALTER AUTHORIZATION ON SCHEMA::HC_TECHNICAL_USER TO HC_TECHNICAL_USER;
 ```
 
 ## Create source table and insert a few records of initial data
