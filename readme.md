@@ -258,7 +258,7 @@ Now the config is complete and the Web IDE project can now be build.
 ## Reference
 Hdbgrants syntax for remote remote_sources: [SAP Help](https://help.sap.com/viewer/4505d0bdaf4948449b7f7379d24d0f0d/2.0.03/en-US/f49c1f5c72ee453788bf79f113d83bf9.html)
 
-SQL statements for test data
+SQL statements for test data and subscription role assignment
 ```
 DROP TABLE REP.SALES;
 CREATE TABLE REP.SALES (ID INTEGER, CREATION_DATE DATE, CUSTOMER_NAME NVARCHAR(100), PRODUCT_NAME NVARCHAR (100), QUANTITY INTEGER, PRICE DECIMAL, POS_COUNTRY NVARCHAR(100), PRIMARY KEY (ID));
@@ -269,4 +269,13 @@ INSERT INTO REP.SALES VALUES (4,'20201102','Clay Rozendal','Longboard A380','30'
 DELETE FROM REP.SALES WHERE ID=4;
 INSERT INTO REP.SALES VALUES (4,'20201102','Clay Rozendal','Shortboard T20','10','20.0','Luxembourg');
 UPDATE REP.SALES SET QUANTITY=50 WHERE ID=4;
+
+CREATE USER TEST_MSSQL_SUBS PASSWORD "<PASSWORD>" NO FORCE_FIRST_PASSWORD_CHANGE;
+REVOKE MSSQL_REPLICATION_1."manage_all_subscriptions" FROM TEST_MSSQL_SUBS;
+GRANT MSSQL_REPLICATION_1."manage_all_subscriptions" TO TEST_MSSQL_SUBS;
+REVOKE MSSQL_REPLICATION_1."manage_specific_subscriptions" FROM TEST_MSSQL_SUBS;
+GRANT MSSQL_REPLICATION_1."manage_specific_subscriptions" TO TEST_MSSQL_SUBS;
+
+--below privilege cannot be part of *.hdbrole, so has to be done runtime
+GRANT PROCESS REMOTE SUBSCRIPTION EXCEPTION ON REMOTE SOURCE "RS_MSSQL" TO TEST_MSSQL_SUBS;
 ```

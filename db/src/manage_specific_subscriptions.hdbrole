@@ -1,0 +1,12 @@
+{
+  "role": {
+    "name": "manage_specific_subscriptions",
+    "object_privileges":[ 
+      { 
+        "name": "SUB_VIRTUAL_SALES",
+        "type": "REMOTE SUBSCRIPTION",
+        "privileges": [ "ALTER" ]
+      }
+    ]
+  }
+}
