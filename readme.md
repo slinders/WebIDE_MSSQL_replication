@@ -124,7 +124,7 @@ CREATE REMOTE SOURCE "RS_MSSQL"
   </PropertyGroup>
   <PropertyGroup name="database">
       <PropertyEntry name="pds_always_on">false</PropertyEntry>
-      <PropertyEntry name="pds_server_name"><host_name>/PropertyEntry>
+      <PropertyEntry name="pds_server_name"><host_name></PropertyEntry>
       <PropertyEntry name="pds_port_number">1433</PropertyEntry>
       <PropertyEntry name="pds_aglistener_host"></PropertyEntry>
       <PropertyEntry name="pds_aglistener_port"></PropertyEntry>
@@ -256,7 +256,7 @@ If you are configuring an on-prem HANA database, you can leave out the endpoint,
 Now the config is complete and the Web IDE project can now be build.
 
 ## Reference
-Hdbgrants syntax for remote remote_sources: [SAP Help](https://help.sap.com/viewer/4505d0bdaf4948449b7f7379d24d0f0d/2.0.03/en-US/f49c1f5c72ee453788bf79f113d83bf9.html)
+Hdbgrants syntax for remote_sources: [SAP Help](https://help.sap.com/viewer/4505d0bdaf4948449b7f7379d24d0f0d/2.0.03/en-US/f49c1f5c72ee453788bf79f113d83bf9.html)
 
 SQL statements for test data and subscription role assignment
 ```
